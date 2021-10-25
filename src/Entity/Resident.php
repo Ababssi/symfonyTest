@@ -81,4 +81,9 @@ class Resident
         $this->birthDate = $birthDate;
         return $this;
     }
+    
+    public function __toString()
+    {
+        return $this->birthDate;
+    }
 }

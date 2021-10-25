@@ -14,6 +14,7 @@ use App\Entity\City;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 
+
 class CityController extends AbstractController
 {
     /**
@@ -30,7 +31,7 @@ class CityController extends AbstractController
     public function create(Request $req,$id,SerializerInterface $ser,EntityManagerInterface $em,CountryRepository $counRepo)
     {
         $country = $counRepo->find($id);
-        if (!$country) dd("ce pays n'existe pas dans la base de donnée");
+        if (!$country) return $this->json(["status"=>404,"message"=>"Ce pays n'existe pas dans la base de donnée"]);
         $jsonCity = $req->getContent();
         $city = $ser->deserialize($jsonCity, City::class,'json');
         $city->setCountry($country);
@@ -45,11 +46,16 @@ class CityController extends AbstractController
     public function update(Request $req, $id,SerializerInterface $ser,EntityManagerInterface $em,CityRepository $cityRepo,CountryRepository $counRepo)
     {
         $cityToUpd = $cityRepo->find($id);
-        if (!$cityToUpd) dd("cette ville n'existe pas dans la base de donnée");
+        if (!$cityToUpd) return $this->json(["status"=>404,"message"=>"Cette ville n'existe pas dans la base de donnée"]);
         $newCityJson = $req->getContent();
         $newCityObj = $ser->deserialize($newCityJson, City::class,'json');
-        $countryNewValue = $counRepo->findOneBy(["name"=>$newCityObj->getCountry()->getName()]);
-        $countryUpd = $countryNewValue ? $countryNewValue : $cityToUpd->getCountry();
+        $countryUpd = $cityToUpd->getCountry();
+
+        if ($newCityObj->getCountry() && $counRepo->findOneBy(["name"=>$newCityObj->getCountry()->getName()])) 
+        {       
+            $countryUpd = $counRepo->findOneBy(["name"=>$newCityObj->getCountry()->getName()]);
+        }
+    
         $cityToUpd->setName($newCityObj->getName())
                   ->setCountry($countryUpd);
 
@@ -63,7 +69,7 @@ class CityController extends AbstractController
     public function delete(Request $req, $id, CityRepository $cityRepo, EntityManagerInterface $em)
     {
         $delCity = $cityRepo->find($id);
-        if (!$delCity) dd("cette ville n'existe pas dans la base de donnée");
+        if (!$delCity) return $this->json($delCity,404,[],['groups'=>'post:read']);
         $em->remove($delCity);
         $em->flush();
         return $this->json($delCity,201,[],['groups'=>'post:read']);

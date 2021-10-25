@@ -12,7 +12,6 @@ use App\Entity\Resident;
 use App\Repository\ResidentRepository;
 use App\Repository\CityRepository;
 use App\Repository\CountryRepository;
-use DateTimeZone;
 use DateTime;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
@@ -22,7 +21,7 @@ class ResidentController extends AbstractController
     /**
      * @Route("/resident", name="resident_read",methods={"GET"})
      */
-    public function index(Request $req, ResidentRepository $residentRepo)
+    public function index(ResidentRepository $residentRepo)
     {        
         $allresident = $residentRepo->findAll();
         return $this->json($allresident,200,[],['groups'=>'post:read']);
@@ -33,9 +32,9 @@ class ResidentController extends AbstractController
     public function create(Request $req, $id,SerializerInterface $ser,EntityManagerInterface $em,CityRepository $cityRepo,CountryRepository $countryRepo)
     {
         $city = $cityRepo->find($id);
-        if(!$city)dd("Cette ville n'existe pas");
+        if (!$city) return $this->json(["status"=>404,"message"=>"Cette ville n'existe pas dans la base de donnée"]);
         $country = $countryRepo->find($city->getCountry()->getId());  
-        if(!$country)dd("Ce pays n'existe pas");
+        if(!$country) return $this->json(["status"=>404,"message"=>"Ce pays n'existe pas dans la base de donnée"]);
         $city->setCountry($country);
 
         $jsonresident = $req->getContent();
@@ -52,7 +51,7 @@ class ResidentController extends AbstractController
     {
         //seek Resident Objet $id data
         $residentToUpd = $residentRepo->find($id);
-        if (!$residentToUpd) dd("ce resident n'existe pas dans la base de donnée");
+        if (!$residentToUpd) return $this->json(["status"=>404,"message"=>"Ce resident n'existe pas dans la base de donnée"]);
 
         //seek json content and transform it on a Resident Objet
         $newResidentJson = $req->getContent();       
@@ -80,7 +79,7 @@ class ResidentController extends AbstractController
     public function delete(Request $req, $id, ResidentRepository $residentRepo,EntityManagerInterface $em)
     {
         $delresident = $residentRepo->find($id);
-        if (!$delresident) dd("ce resident n'existe pas dans la base de donnée");
+        if (!$delresident) return $this->json(["status"=>404,"message"=>"Ce resident n'existe pas dans la base de donnée"]);
         $em->remove($delresident);
         $em->flush();
         return $this->json($delresident,201,[],['groups'=>'post:read']);
@@ -93,16 +92,15 @@ class ResidentController extends AbstractController
         //on fait un findBy()
         $cityLookIn = $cityRepo->find($id);
         $allResidentOn = $residentRepo->findBy(["city"=>$cityLookIn]);
-        $sumAges=0;
+        $sumAges=[];
         
-        foreach ($allResidentOn as $resident) {
-            
-            $tz  = new DateTimeZone('Europe/Brussels');
-            $sumAges .= DateTime::createFromFormat('Y/m/d', input($resident->getBirthDate()), $tz)
-                ->diff(new DateTime('now', $tz))
-                ->y;
+        foreach ($allResidentOn as $resident) {    
+
+            array_push($sumAges,$resident->getBirthDate()->diff(new DateTime('now'))->y);
         }
-        return $sumAges/count($allResidentOn);
+        $avgAge = array_sum($sumAges)/count($sumAges);
+
+        return $this->json(["status"=>200,"Moyenne"=>$avgAge]);
 
     }
 
